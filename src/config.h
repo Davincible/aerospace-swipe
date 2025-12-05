@@ -39,13 +39,13 @@ static Config default_config()
 	config.skip_empty = true;
 	config.fingers = 3;
 	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch (was 0)
-	config.distance_pct = 0.05f;     // ≥5% travel triggers (was 8%)
+	config.distance_pct = 0.07f;     // ≥7% travel triggers (was 8%, then 5%)
 	config.velocity_pct = 0.15f;     // ≥0.15 velocity triggers (was 0.30)
 	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended (was 15%)
-	config.min_step = 0.003f;        // Smaller step threshold (was 0.005)
-	config.min_travel = 0.010f;      // Smaller travel threshold (was 0.015)
+	config.min_step = 0.004f;        // Step threshold (was 0.005, then 0.003)
+	config.min_travel = 0.012f;      // Travel threshold (was 0.015, then 0.010)
 	config.min_step_fast = 0.0f;
-	config.min_travel_fast = 0.002f; // Even smaller for fast swipes (was 0.003)
+	config.min_travel_fast = 0.003f; // Fast swipe threshold (original value)
 	config.palm_disp = 0.025;        // 2.5% pad from origin
 	config.palm_age = 0.06;          // 60ms before judgment
 	config.palm_velocity = 0.1;      // 10% of pad dimension per second
