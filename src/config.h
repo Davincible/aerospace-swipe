@@ -28,33 +28,42 @@ typedef struct {
 	float palm_disp;
 	CFTimeInterval palm_age;
 	float palm_velocity;
+	float fast_distance_factor;   // For fast swipes, trigger at this fraction of distance_pct
+	float fast_velocity_threshold; // Minimum velocity to qualify as "fast"
 	const char* swipe_left;
 	const char* swipe_right;
 } Config;
 
 // Apply sensitivity level: 1=Low, 2=Medium, 3=High
-// Distance-based only - swipe speed doesn't affect trigger distance
+// Low: purely distance-based
+// Medium/High: also trigger early on fast intentional swipes
 static void apply_sensitivity(Config* config, int level)
 {
 	config->sensitivity = level;
 
-	// Velocity not used for triggering anymore, but keep a value for arming logic
+	// Velocity threshold for arming logic
 	config->velocity_pct = 0.10f;
 
 	// 3 levels: 1=Low, 2=Medium, 3=High
 	switch (level) {
-		case 1: // Low - requires ~35% trackpad swipe
+		case 1: // Low - requires ~35% trackpad swipe, no fast-trigger
 			config->distance_pct = 0.35f;
 			config->min_travel = 0.060f;
+			config->fast_distance_factor = 1.0f;      // Disabled (must reach full distance)
+			config->fast_velocity_threshold = 10.0f;  // Impossible velocity
 			break;
-		case 2: // Medium - requires ~20% trackpad swipe
+		case 2: // Medium - requires ~20% trackpad swipe, or 60% if fast
 			config->distance_pct = 0.20f;
 			config->min_travel = 0.035f;
+			config->fast_distance_factor = 0.60f;     // 12% of trackpad if fast
+			config->fast_velocity_threshold = 0.35f;  // Moderate velocity required
 			break;
-		case 3: // High - requires ~8% trackpad swipe
+		case 3: // High - requires ~8% trackpad swipe, or 60% if fast
 		default:
 			config->distance_pct = 0.08f;
 			config->min_travel = 0.015f;
+			config->fast_distance_factor = 0.60f;     // ~5% of trackpad if fast
+			config->fast_velocity_threshold = 0.25f;  // Lower velocity needed
 			break;
 	}
 }
@@ -69,7 +78,7 @@ static Config default_config()
 	config.show_menu_bar = true;
 	config.fingers = 3;
 	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch
-	config.sensitivity = 4;          // Default sensitivity level (1-10)
+	config.sensitivity = 2;          // Default sensitivity level (1=Low, 2=Medium, 3=High)
 	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended
 	config.min_step = 0.006f;        // Step threshold
 	config.min_step_fast = 0.0f;
@@ -77,6 +86,8 @@ static Config default_config()
 	config.palm_disp = 0.025;        // 2.5% pad from origin
 	config.palm_age = 0.06;          // 60ms before judgment
 	config.palm_velocity = 0.1;      // 10% of pad dimension per second
+	config.fast_distance_factor = 0.60f;   // Fast swipes can trigger at 60% of normal distance
+	config.fast_velocity_threshold = 0.35f; // Velocity needed for fast-trigger
 	config.swipe_left = "prev";
 	config.swipe_right = "next";
 

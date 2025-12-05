@@ -120,8 +120,8 @@ static BOOL g_enabled = YES;
         _sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
     }
 
-    NSLog(@"Sensitivity set to %d (distance=%.2f, velocity=%.2f, travel=%.3f)",
-          level, g_config.distance_pct, g_config.velocity_pct, g_config.min_travel);
+    NSLog(@"Sensitivity set to %d (distance=%.2f, fast=%.2fx@vel%.2f)",
+          level, g_config.distance_pct, g_config.fast_distance_factor, g_config.fast_velocity_threshold);
 }
 
 - (void)quit:(id)sender {
@@ -304,8 +304,14 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 		ctx->dir = (avg_vel >= 0) ? 1 : -1;
 	}
 
-	// Fire based on distance only - speed doesn't matter
+	// Fire based on distance
 	if (fabsf(dx) >= g_config.distance_pct) {
+		fire_gesture(ctx, dx > 0 ? 1 : -1);
+	}
+	// Or fire on fast intentional swipes (for medium/high sensitivity)
+	// Must reach at least fast_distance_factor of the threshold distance
+	else if (fabsf(avg_vel) >= g_config.fast_velocity_threshold &&
+	         fabsf(dx) >= g_config.distance_pct * g_config.fast_distance_factor) {
 		fire_gesture(ctx, dx > 0 ? 1 : -1);
 	}
 }
