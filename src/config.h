@@ -43,18 +43,18 @@ static void apply_sensitivity(Config* config, int level)
 
 	// 3 levels: 1=Low, 2=Medium, 3=High
 	switch (level) {
-		case 1: // Low - requires ~45% trackpad swipe
-			config->distance_pct = 0.45f;
-			config->min_travel = 0.080f;
+		case 1: // Low - requires ~35% trackpad swipe
+			config->distance_pct = 0.35f;
+			config->min_travel = 0.060f;
 			break;
-		case 2: // Medium - requires ~25% trackpad swipe
-			config->distance_pct = 0.25f;
-			config->min_travel = 0.045f;
+		case 2: // Medium - requires ~20% trackpad swipe
+			config->distance_pct = 0.20f;
+			config->min_travel = 0.035f;
 			break;
-		case 3: // High - requires ~10% trackpad swipe
+		case 3: // High - requires ~8% trackpad swipe
 		default:
-			config->distance_pct = 0.10f;
-			config->min_travel = 0.020f;
+			config->distance_pct = 0.08f;
+			config->min_travel = 0.015f;
 			break;
 	}
 }
