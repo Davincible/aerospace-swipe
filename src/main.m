@@ -144,10 +144,10 @@ static void handle_idle_state(gesture_ctx* ctx, touch* touches, int count,
 	float dx = avg_x - ctx->start_x;
 	float dy = avg_y - ctx->start_y;
 
-	// More lenient activation: arm if moved OR if we have any significant horizontal velocity
+	// Arm if moved and horizontal movement dominates
 	if (moved && (fast || fabsf(dx) >= ACTIVATE_PCT || fabsf(avg_vel) >= g_config.velocity_pct * 0.5f)) {
-		// Only require horizontal to be somewhat dominant, not strictly greater
-		if (fabsf(dx) >= fabsf(dy) * 0.7f || fast) {
+		// Horizontal must be greater than vertical (original behavior)
+		if (fabsf(dx) > fabsf(dy) || fast) {
 			ctx->state = GS_ARMED;
 			ctx->start_x = avg_x;
 			ctx->start_y = avg_y;
@@ -163,9 +163,8 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 	float dx = avg_x - ctx->start_x;
 	float dy = avg_y - ctx->start_y;
 
-	// Only reset if vertical movement SIGNIFICANTLY exceeds horizontal (1.5x ratio)
-	// This allows for slight diagonal swipes which are common
-	if (fabsf(dy) > fabsf(dx) * 1.5f && fabsf(dy) > 0.03f) {
+	// Reset if vertical movement exceeds horizontal (with small tolerance for diagonal)
+	if (fabsf(dy) > fabsf(dx) * 1.2f) {
 		reset_gesture_state(ctx);
 		return;
 	}
