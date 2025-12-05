@@ -306,11 +306,8 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 		ctx->dir = (avg_vel >= 0) ? 1 : -1;
 	}
 
-	// Fire on velocity OR distance (more lenient OR condition)
-	if (fabsf(avg_vel) >= g_config.velocity_pct) {
-		fire_gesture(ctx, avg_vel > 0 ? 1 : -1);
-	} else if (fabsf(dx) >= g_config.distance_pct) {
-		// Fire based on distance alone if we've traveled far enough
+	// Fire based on distance only - speed doesn't matter
+	if (fabsf(dx) >= g_config.distance_pct) {
 		fire_gesture(ctx, dx > 0 ? 1 : -1);
 	}
 }
