@@ -38,17 +38,17 @@ static Config default_config()
 	config.haptic = false;
 	config.skip_empty = true;
 	config.fingers = 3;
-	config.swipe_tolerance = 0;
-	config.distance_pct = 0.08f; // ≥8 % travel triggers
-	config.velocity_pct = 0.30f; // ≥0.30 × w pts / s triggers
-	config.settle_factor = 0.15f; // ≤15 % of flick speed -> flick ended
-	config.min_step = 0.005f;
-	config.min_travel = 0.015f;
+	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch (was 0)
+	config.distance_pct = 0.05f;     // ≥5% travel triggers (was 8%)
+	config.velocity_pct = 0.15f;     // ≥0.15 velocity triggers (was 0.30)
+	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended (was 15%)
+	config.min_step = 0.003f;        // Smaller step threshold (was 0.005)
+	config.min_travel = 0.010f;      // Smaller travel threshold (was 0.015)
 	config.min_step_fast = 0.0f;
-	config.min_travel_fast = 0.003f;
-	config.palm_disp = 0.025; // 2.5% pad from origin
-	config.palm_age = 0.06; // 60ms before judgment
-	config.palm_velocity = 0.1; // 10% of pad dimension per second
+	config.min_travel_fast = 0.002f; // Even smaller for fast swipes (was 0.003)
+	config.palm_disp = 0.025;        // 2.5% pad from origin
+	config.palm_age = 0.06;          // 60ms before judgment
+	config.palm_velocity = 0.1;      // 10% of pad dimension per second
 	config.swipe_left = "prev";
 	config.swipe_right = "next";
 	return config;

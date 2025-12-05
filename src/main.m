@@ -132,19 +132,28 @@ static void handle_idle_state(gesture_ctx* ctx, touch* touches, int count,
 	bool fast = fabsf(avg_vel) >= g_config.velocity_pct * FAST_VEL_FACTOR;
 	float need = fast ? g_config.min_travel_fast : g_config.min_travel;
 
-	bool moved = true;
-	for (int i = 0; i < count && moved; ++i)
-		moved &= fabsf(touches[i].x - ctx->base_x[i]) >= need;
+	// Count how many fingers have moved enough (allow some to lag)
+	int moved_count = 0;
+	for (int i = 0; i < count; ++i) {
+		if (fabsf(touches[i].x - ctx->base_x[i]) >= need)
+			moved_count++;
+	}
+	// At least half the fingers should have moved
+	bool moved = (moved_count >= (count + 1) / 2);
 
 	float dx = avg_x - ctx->start_x;
 	float dy = avg_y - ctx->start_y;
 
-	if (moved && (fast || (fabsf(dx) >= ACTIVATE_PCT && fabsf(dx) > fabsf(dy)))) {
-		ctx->state = GS_ARMED;
-		ctx->start_x = avg_x;
-		ctx->start_y = avg_y;
-		ctx->peak_velx = avg_vel;
-		ctx->dir = (avg_vel >= 0) ? 1 : -1;
+	// More lenient activation: arm if moved OR if we have any significant horizontal velocity
+	if (moved && (fast || fabsf(dx) >= ACTIVATE_PCT || fabsf(avg_vel) >= g_config.velocity_pct * 0.5f)) {
+		// Only require horizontal to be somewhat dominant, not strictly greater
+		if (fabsf(dx) >= fabsf(dy) * 0.7f || fast) {
+			ctx->state = GS_ARMED;
+			ctx->start_x = avg_x;
+			ctx->start_y = avg_y;
+			ctx->peak_velx = avg_vel;
+			ctx->dir = (avg_vel >= 0) ? 1 : -1;
+		}
 	}
 }
 
@@ -154,7 +163,9 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 	float dx = avg_x - ctx->start_x;
 	float dy = avg_y - ctx->start_y;
 
-	if (fabsf(dy) > fabsf(dx)) {
+	// Only reset if vertical movement SIGNIFICANTLY exceeds horizontal (1.5x ratio)
+	// This allows for slight diagonal swipes which are common
+	if (fabsf(dy) > fabsf(dx) * 1.5f && fabsf(dy) > 0.03f) {
 		reset_gesture_state(ctx);
 		return;
 	}
@@ -179,9 +190,11 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 		ctx->dir = (avg_vel >= 0) ? 1 : -1;
 	}
 
+	// Fire on velocity OR distance (more lenient OR condition)
 	if (fabsf(avg_vel) >= g_config.velocity_pct) {
 		fire_gesture(ctx, avg_vel > 0 ? 1 : -1);
-	} else if (fabsf(dx) >= g_config.distance_pct && fabsf(avg_vel) <= g_config.velocity_pct * g_config.settle_factor) {
+	} else if (fabsf(dx) >= g_config.distance_pct) {
+		// Fire based on distance alone if we've traveled far enough
 		fire_gesture(ctx, dx > 0 ? 1 : -1);
 	}
 }
