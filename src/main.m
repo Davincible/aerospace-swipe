@@ -17,10 +17,11 @@ static CFMutableDictionaryRef g_tracks = NULL;
 static BOOL g_enabled = YES;
 
 // Menu bar app delegate
-@interface AppDelegate : NSObject <NSApplicationDelegate>
+@interface AppDelegate : NSObject <NSApplicationDelegate> {
+    NSMenuItem *_sensitivityItems[5];
+}
 @property (strong, nonatomic) NSStatusItem *statusItem;
 @property (strong, nonatomic) NSMenuItem *enabledMenuItem;
-@property (strong, nonatomic) NSMenuItem *sensitivityItems[5];
 @end
 
 @implementation AppDelegate
@@ -67,7 +68,7 @@ static BOOL g_enabled = YES;
         item.tag = i + 1;
         item.state = (g_config.sensitivity == i + 1) ? NSControlStateValueOn : NSControlStateValueOff;
         [sensitivityMenu addItem:item];
-        self.sensitivityItems[i] = item;
+        _sensitivityItems[i] = item;
     }
     sensitivityMenuItem.submenu = sensitivityMenu;
     [menu addItem:sensitivityMenuItem];
@@ -115,7 +116,7 @@ static BOOL g_enabled = YES;
 
     // Update checkmarks
     for (int i = 0; i < 5; i++) {
-        self.sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
+        _sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
     }
 
     NSLog(@"Sensitivity set to %d (distance=%.2f, velocity=%.2f, travel=%.3f)",
