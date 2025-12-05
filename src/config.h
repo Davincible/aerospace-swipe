@@ -32,7 +32,7 @@ typedef struct {
 	const char* swipe_right;
 } Config;
 
-// Apply sensitivity level: 1=Low, 5=Medium, 10=High
+// Apply sensitivity level: 1=Low, 2=Medium, 3=High
 // Distance-based only - swipe speed doesn't affect trigger distance
 static void apply_sensitivity(Config* config, int level)
 {
@@ -41,19 +41,21 @@ static void apply_sensitivity(Config* config, int level)
 	// Velocity not used for triggering anymore, but keep a value for arming logic
 	config->velocity_pct = 0.10f;
 
-	// 3 levels: Low (1), Medium (5), High (10)
-	if (level <= 1) {
-		// Low - requires ~45% trackpad swipe
-		config->distance_pct = 0.45f;
-		config->min_travel = 0.080f;
-	} else if (level <= 5) {
-		// Medium - requires ~20% trackpad swipe
-		config->distance_pct = 0.20f;
-		config->min_travel = 0.035f;
-	} else {
-		// High - requires ~8% trackpad swipe
-		config->distance_pct = 0.08f;
-		config->min_travel = 0.015f;
+	// 3 levels: 1=Low, 2=Medium, 3=High
+	switch (level) {
+		case 1: // Low - requires ~45% trackpad swipe
+			config->distance_pct = 0.45f;
+			config->min_travel = 0.080f;
+			break;
+		case 2: // Medium - requires ~20% trackpad swipe
+			config->distance_pct = 0.20f;
+			config->min_travel = 0.035f;
+			break;
+		case 3: // High - requires ~8% trackpad swipe
+		default:
+			config->distance_pct = 0.08f;
+			config->min_travel = 0.015f;
+			break;
 	}
 }
 
