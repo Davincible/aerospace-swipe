@@ -39,11 +39,11 @@ static Config default_config()
 	config.skip_empty = true;
 	config.fingers = 3;
 	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch (was 0)
-	config.distance_pct = 0.12f;     // ≥12% travel triggers (more like native macOS)
-	config.velocity_pct = 0.15f;     // ≥0.15 velocity triggers (was 0.30)
+	config.distance_pct = 0.20f;     // ≥20% travel triggers (deliberate swipe required)
+	config.velocity_pct = 0.25f;     // ≥0.25 velocity triggers (need faster swipe)
 	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended (was 15%)
-	config.min_step = 0.004f;        // Step threshold (was 0.005, then 0.003)
-	config.min_travel = 0.020f;      // Travel threshold (more deliberate swipe needed)
+	config.min_step = 0.006f;        // Step threshold (more movement per frame)
+	config.min_travel = 0.040f;      // Travel threshold (much more deliberate swipe)
 	config.min_step_fast = 0.0f;
 	config.min_travel_fast = 0.003f; // Fast swipe threshold (original value)
 	config.palm_disp = 0.025;        // 2.5% pad from origin
