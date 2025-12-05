@@ -14,6 +14,81 @@ static Config g_config;
 static pthread_mutex_t g_gesture_mutex = PTHREAD_MUTEX_INITIALIZER;
 static gesture_ctx g_gesture_ctx = { 0 };
 static CFMutableDictionaryRef g_tracks = NULL;
+static BOOL g_enabled = YES;
+
+// Menu bar app delegate
+@interface AppDelegate : NSObject <NSApplicationDelegate>
+@property (strong, nonatomic) NSStatusItem *statusItem;
+@property (strong, nonatomic) NSMenuItem *enabledMenuItem;
+@end
+
+@implementation AppDelegate
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    // Create status bar item
+    self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
+
+    // Set the icon (using SF Symbol or fallback to text)
+    if (@available(macOS 11.0, *)) {
+        NSImage *icon = [NSImage imageWithSystemSymbolName:@"hand.draw" accessibilityDescription:@"AeroSpace Swipe"];
+        [icon setTemplate:YES];
+        self.statusItem.button.image = icon;
+    } else {
+        self.statusItem.button.title = @"⇄";
+    }
+    self.statusItem.button.toolTip = @"AeroSpace Swipe";
+
+    // Create menu
+    NSMenu *menu = [[NSMenu alloc] init];
+
+    // Enabled toggle
+    self.enabledMenuItem = [[NSMenuItem alloc] initWithTitle:@"Enabled" action:@selector(toggleEnabled:) keyEquivalent:@""];
+    self.enabledMenuItem.target = self;
+    self.enabledMenuItem.state = NSControlStateValueOn;
+    [menu addItem:self.enabledMenuItem];
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    // Config info
+    NSString *configInfo = [NSString stringWithFormat:@"%d-finger swipe", g_config.fingers];
+    NSMenuItem *infoItem = [[NSMenuItem alloc] initWithTitle:configInfo action:nil keyEquivalent:@""];
+    infoItem.enabled = NO;
+    [menu addItem:infoItem];
+
+    NSString *modeInfo = g_config.natural_swipe ? @"Natural scrolling" : @"Standard scrolling";
+    NSMenuItem *modeItem = [[NSMenuItem alloc] initWithTitle:modeInfo action:nil keyEquivalent:@""];
+    modeItem.enabled = NO;
+    [menu addItem:modeItem];
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    // Quit
+    NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(quit:) keyEquivalent:@"q"];
+    quitItem.target = self;
+    [menu addItem:quitItem];
+
+    self.statusItem.menu = menu;
+}
+
+- (void)toggleEnabled:(id)sender {
+    g_enabled = !g_enabled;
+    self.enabledMenuItem.state = g_enabled ? NSControlStateValueOn : NSControlStateValueOff;
+
+    if (@available(macOS 11.0, *)) {
+        NSString *iconName = g_enabled ? @"hand.draw" : @"hand.raised.slash";
+        NSImage *icon = [NSImage imageWithSystemSymbolName:iconName accessibilityDescription:@"AeroSpace Swipe"];
+        [icon setTemplate:YES];
+        self.statusItem.button.image = icon;
+    }
+
+    NSLog(@"AeroSpace Swipe %@", g_enabled ? @"enabled" : @"disabled");
+}
+
+- (void)quit:(id)sender {
+    [[NSApplication sharedApplication] terminate:nil];
+}
+
+@end
 
 static void switch_workspace(const char* ws)
 {
@@ -200,6 +275,9 @@ static void handle_armed_state(gesture_ctx* ctx, touch* touches, int count,
 
 static void gestureCallback(touch* touches, int count)
 {
+	if (!g_enabled)
+		return;
+
 	pthread_mutex_lock(&g_gesture_mutex);
 
 	gesture_ctx* ctx = &g_gesture_ctx;
@@ -385,6 +463,15 @@ int main(int argc, const char* argv[])
 
 		event_tap_begin(&g_event_tap, key_handler);
 
-		return NSApplicationMain(argc, argv);
+		// Set up NSApplication with our delegate for menu bar
+		NSApplication *app = [NSApplication sharedApplication];
+		AppDelegate *delegate = [[AppDelegate alloc] init];
+		app.delegate = delegate;
+
+		// Activate as accessory (menu bar only, no dock icon)
+		[app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+
+		[app run];
+		return 0;
 	}
 }
