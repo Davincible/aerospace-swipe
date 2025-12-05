@@ -35,8 +35,7 @@ typedef struct {
 } Config;
 
 // Apply sensitivity level: 1=Low, 2=Medium, 3=High
-// Low: purely distance-based
-// Medium/High: also trigger early on fast intentional swipes
+// All levels support early triggering on fast intentional swipes (60% of threshold)
 static void apply_sensitivity(Config* config, int level)
 {
 	config->sensitivity = level;
@@ -46,11 +45,11 @@ static void apply_sensitivity(Config* config, int level)
 
 	// 3 levels: 1=Low, 2=Medium, 3=High
 	switch (level) {
-		case 1: // Low - requires ~35% trackpad swipe, no fast-trigger
+		case 1: // Low - requires ~35% trackpad swipe, or 60% if fast
 			config->distance_pct = 0.35f;
 			config->min_travel = 0.060f;
-			config->fast_distance_factor = 1.0f;      // Disabled (must reach full distance)
-			config->fast_velocity_threshold = 10.0f;  // Impossible velocity
+			config->fast_distance_factor = 0.60f;     // 21% of trackpad if fast
+			config->fast_velocity_threshold = 0.45f;  // Higher velocity needed
 			break;
 		case 2: // Medium - requires ~20% trackpad swipe, or 60% if fast
 			config->distance_pct = 0.20f;
