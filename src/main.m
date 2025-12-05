@@ -19,9 +19,14 @@ static BOOL g_enabled = YES;
 // Menu bar app delegate
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
     NSMenuItem *_sensitivityItems[3];
+    NSMenuItem *_fingerItems[3];
 }
 @property (strong, nonatomic) NSStatusItem *statusItem;
 @property (strong, nonatomic) NSMenuItem *enabledMenuItem;
+@property (strong, nonatomic) NSMenuItem *hapticMenuItem;
+@property (strong, nonatomic) NSMenuItem *naturalSwipeMenuItem;
+@property (strong, nonatomic) NSMenuItem *wrapAroundMenuItem;
+@property (strong, nonatomic) NSMenuItem *skipEmptyMenuItem;
 @end
 
 @implementation AppDelegate
@@ -60,11 +65,9 @@ static BOOL g_enabled = YES;
     // Sensitivity submenu
     NSMenuItem *sensitivityMenuItem = [[NSMenuItem alloc] initWithTitle:@"Sensitivity" action:nil keyEquivalent:@""];
     NSMenu *sensitivityMenu = [[NSMenu alloc] init];
-
-    // 1=Low, 2=Medium, 3=High
-    NSString *labels[] = {@"Low", @"Medium", @"High"};
+    NSString *sensitivityLabels[] = {@"Low", @"Medium", @"High"};
     for (int i = 0; i < 3; i++) {
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:labels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:sensitivityLabels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
         item.target = self;
         item.tag = i + 1;
         item.state = (g_config.sensitivity == i + 1) ? NSControlStateValueOn : NSControlStateValueOff;
@@ -74,18 +77,43 @@ static BOOL g_enabled = YES;
     sensitivityMenuItem.submenu = sensitivityMenu;
     [menu addItem:sensitivityMenuItem];
 
+    // Fingers submenu
+    NSMenuItem *fingersMenuItem = [[NSMenuItem alloc] initWithTitle:@"Fingers" action:nil keyEquivalent:@""];
+    NSMenu *fingersMenu = [[NSMenu alloc] init];
+    for (int i = 0; i < 3; i++) {
+        int fingers = i + 2;  // 2, 3, 4
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"%d fingers", fingers] action:@selector(setFingers:) keyEquivalent:@""];
+        item.target = self;
+        item.tag = fingers;
+        item.state = (g_config.fingers == fingers) ? NSControlStateValueOn : NSControlStateValueOff;
+        [fingersMenu addItem:item];
+        _fingerItems[i] = item;
+    }
+    fingersMenuItem.submenu = fingersMenu;
+    [menu addItem:fingersMenuItem];
+
     [menu addItem:[NSMenuItem separatorItem]];
 
-    // Config info
-    NSString *configInfo = [NSString stringWithFormat:@"%d-finger swipe", g_config.fingers];
-    NSMenuItem *infoItem = [[NSMenuItem alloc] initWithTitle:configInfo action:nil keyEquivalent:@""];
-    infoItem.enabled = NO;
-    [menu addItem:infoItem];
+    // Toggle options
+    self.hapticMenuItem = [[NSMenuItem alloc] initWithTitle:@"Haptic Feedback" action:@selector(toggleHaptic:) keyEquivalent:@""];
+    self.hapticMenuItem.target = self;
+    self.hapticMenuItem.state = g_config.haptic ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:self.hapticMenuItem];
 
-    NSString *modeInfo = g_config.natural_swipe ? @"Natural scrolling" : @"Standard scrolling";
-    NSMenuItem *modeItem = [[NSMenuItem alloc] initWithTitle:modeInfo action:nil keyEquivalent:@""];
-    modeItem.enabled = NO;
-    [menu addItem:modeItem];
+    self.naturalSwipeMenuItem = [[NSMenuItem alloc] initWithTitle:@"Natural Swipe" action:@selector(toggleNaturalSwipe:) keyEquivalent:@""];
+    self.naturalSwipeMenuItem.target = self;
+    self.naturalSwipeMenuItem.state = g_config.natural_swipe ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:self.naturalSwipeMenuItem];
+
+    self.wrapAroundMenuItem = [[NSMenuItem alloc] initWithTitle:@"Wrap Around" action:@selector(toggleWrapAround:) keyEquivalent:@""];
+    self.wrapAroundMenuItem.target = self;
+    self.wrapAroundMenuItem.state = g_config.wrap_around ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:self.wrapAroundMenuItem];
+
+    self.skipEmptyMenuItem = [[NSMenuItem alloc] initWithTitle:@"Skip Empty" action:@selector(toggleSkipEmpty:) keyEquivalent:@""];
+    self.skipEmptyMenuItem.target = self;
+    self.skipEmptyMenuItem.state = g_config.skip_empty ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:self.skipEmptyMenuItem];
 
     [menu addItem:[NSMenuItem separatorItem]];
 
@@ -122,6 +150,58 @@ static BOOL g_enabled = YES;
 
     NSLog(@"Sensitivity set to %d (distance=%.2f, fast=%.2fx@vel%.2f)",
           level, g_config.distance_pct, g_config.fast_distance_factor, g_config.fast_velocity_threshold);
+}
+
+- (void)setFingers:(NSMenuItem *)sender {
+    int fingers = (int)sender.tag;
+    g_config.fingers = fingers;
+
+    // Update checkmarks
+    for (int i = 0; i < 3; i++) {
+        _fingerItems[i].state = (_fingerItems[i].tag == fingers) ? NSControlStateValueOn : NSControlStateValueOff;
+    }
+
+    NSLog(@"Fingers set to %d", fingers);
+}
+
+- (void)toggleHaptic:(id)sender {
+    g_config.haptic = !g_config.haptic;
+    self.hapticMenuItem.state = g_config.haptic ? NSControlStateValueOn : NSControlStateValueOff;
+
+    // Initialize haptic if enabling and not already initialized
+    if (g_config.haptic && !g_haptic) {
+        g_haptic = haptic_open_default();
+        if (!g_haptic) {
+            NSLog(@"Warning: Failed to initialize haptic actuator");
+        }
+    }
+
+    NSLog(@"Haptic feedback %@", g_config.haptic ? @"enabled" : @"disabled");
+}
+
+- (void)toggleNaturalSwipe:(id)sender {
+    g_config.natural_swipe = !g_config.natural_swipe;
+    self.naturalSwipeMenuItem.state = g_config.natural_swipe ? NSControlStateValueOn : NSControlStateValueOff;
+
+    // Update swipe directions
+    g_config.swipe_left = g_config.natural_swipe ? "next" : "prev";
+    g_config.swipe_right = g_config.natural_swipe ? "prev" : "next";
+
+    NSLog(@"Natural swipe %@", g_config.natural_swipe ? @"enabled" : @"disabled");
+}
+
+- (void)toggleWrapAround:(id)sender {
+    g_config.wrap_around = !g_config.wrap_around;
+    self.wrapAroundMenuItem.state = g_config.wrap_around ? NSControlStateValueOn : NSControlStateValueOff;
+
+    NSLog(@"Wrap around %@", g_config.wrap_around ? @"enabled" : @"disabled");
+}
+
+- (void)toggleSkipEmpty:(id)sender {
+    g_config.skip_empty = !g_config.skip_empty;
+    self.skipEmptyMenuItem.state = g_config.skip_empty ? NSControlStateValueOn : NSControlStateValueOff;
+
+    NSLog(@"Skip empty %@", g_config.skip_empty ? @"enabled" : @"disabled");
 }
 
 - (void)quit:(id)sender {
