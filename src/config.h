@@ -33,6 +33,7 @@ typedef struct {
 } Config;
 
 // Apply sensitivity level (1=least sensitive, 10=most sensitive)
+// Sensitivity is primarily distance-based - velocity is kept low to allow slow swipes
 static void apply_sensitivity(Config* config, int level)
 {
 	// Clamp to 1-10
@@ -40,58 +41,50 @@ static void apply_sensitivity(Config* config, int level)
 	if (level > 10) level = 10;
 	config->sensitivity = level;
 
-	// Sensitivity presets (distance_pct, velocity_pct, min_travel)
-	// Lower values = more sensitive (triggers easier)
+	// Low velocity threshold for all levels - allow slow deliberate swipes
+	config->velocity_pct = 0.08f;
+
+	// Sensitivity is purely about distance traveled
 	switch (level) {
-		case 1: // Least sensitive - requires full swipe across trackpad
+		case 1: // Least sensitive - requires ~50% trackpad swipe
 			config->distance_pct = 0.50f;
-			config->velocity_pct = 0.60f;
-			config->min_travel = 0.120f;
+			config->min_travel = 0.100f;
 			break;
 		case 2:
-			config->distance_pct = 0.40f;
-			config->velocity_pct = 0.50f;
-			config->min_travel = 0.090f;
+			config->distance_pct = 0.42f;
+			config->min_travel = 0.085f;
 			break;
 		case 3:
-			config->distance_pct = 0.32f;
-			config->velocity_pct = 0.40f;
+			config->distance_pct = 0.35f;
 			config->min_travel = 0.070f;
 			break;
 		case 4:
-			config->distance_pct = 0.25f;
-			config->velocity_pct = 0.32f;
+			config->distance_pct = 0.28f;
 			config->min_travel = 0.055f;
 			break;
-		case 5: // Medium
-			config->distance_pct = 0.20f;
-			config->velocity_pct = 0.25f;
-			config->min_travel = 0.040f;
+		case 5: // Medium - requires ~22% trackpad swipe
+			config->distance_pct = 0.22f;
+			config->min_travel = 0.045f;
 			break;
 		case 6:
-			config->distance_pct = 0.15f;
-			config->velocity_pct = 0.20f;
-			config->min_travel = 0.030f;
+			config->distance_pct = 0.17f;
+			config->min_travel = 0.035f;
 			break;
 		case 7:
-			config->distance_pct = 0.12f;
-			config->velocity_pct = 0.16f;
-			config->min_travel = 0.022f;
+			config->distance_pct = 0.13f;
+			config->min_travel = 0.026f;
 			break;
 		case 8:
-			config->distance_pct = 0.09f;
-			config->velocity_pct = 0.12f;
-			config->min_travel = 0.015f;
+			config->distance_pct = 0.10f;
+			config->min_travel = 0.018f;
 			break;
 		case 9:
-			config->distance_pct = 0.06f;
-			config->velocity_pct = 0.09f;
-			config->min_travel = 0.010f;
+			config->distance_pct = 0.07f;
+			config->min_travel = 0.012f;
 			break;
-		case 10: // Most sensitive - very light swipes trigger
-			config->distance_pct = 0.04f;
-			config->velocity_pct = 0.06f;
-			config->min_travel = 0.006f;
+		case 10: // Most sensitive - requires ~5% trackpad swipe
+			config->distance_pct = 0.05f;
+			config->min_travel = 0.008f;
 			break;
 	}
 }
