@@ -32,41 +32,66 @@ typedef struct {
 	const char* swipe_right;
 } Config;
 
-// Apply sensitivity level (1=least sensitive, 5=most sensitive)
+// Apply sensitivity level (1=least sensitive, 10=most sensitive)
 static void apply_sensitivity(Config* config, int level)
 {
-	// Clamp to 1-5
+	// Clamp to 1-10
 	if (level < 1) level = 1;
-	if (level > 5) level = 5;
+	if (level > 10) level = 10;
 	config->sensitivity = level;
 
 	// Sensitivity presets (distance_pct, velocity_pct, min_travel)
 	// Lower values = more sensitive (triggers easier)
 	switch (level) {
-		case 1: // Least sensitive - requires very deliberate swipe
-			config->distance_pct = 0.25f;
-			config->velocity_pct = 0.30f;
-			config->min_travel = 0.050f;
+		case 1: // Least sensitive - requires full swipe across trackpad
+			config->distance_pct = 0.50f;
+			config->velocity_pct = 0.60f;
+			config->min_travel = 0.120f;
 			break;
 		case 2:
+			config->distance_pct = 0.40f;
+			config->velocity_pct = 0.50f;
+			config->min_travel = 0.090f;
+			break;
+		case 3:
+			config->distance_pct = 0.32f;
+			config->velocity_pct = 0.40f;
+			config->min_travel = 0.070f;
+			break;
+		case 4:
+			config->distance_pct = 0.25f;
+			config->velocity_pct = 0.32f;
+			config->min_travel = 0.055f;
+			break;
+		case 5: // Medium
 			config->distance_pct = 0.20f;
 			config->velocity_pct = 0.25f;
 			config->min_travel = 0.040f;
 			break;
-		case 3: // Default/medium
+		case 6:
 			config->distance_pct = 0.15f;
 			config->velocity_pct = 0.20f;
 			config->min_travel = 0.030f;
 			break;
-		case 4:
-			config->distance_pct = 0.10f;
-			config->velocity_pct = 0.15f;
-			config->min_travel = 0.020f;
+		case 7:
+			config->distance_pct = 0.12f;
+			config->velocity_pct = 0.16f;
+			config->min_travel = 0.022f;
 			break;
-		case 5: // Most sensitive - light swipes trigger
-			config->distance_pct = 0.07f;
+		case 8:
+			config->distance_pct = 0.09f;
 			config->velocity_pct = 0.12f;
-			config->min_travel = 0.012f;
+			config->min_travel = 0.015f;
+			break;
+		case 9:
+			config->distance_pct = 0.06f;
+			config->velocity_pct = 0.09f;
+			config->min_travel = 0.010f;
+			break;
+		case 10: // Most sensitive - very light swipes trigger
+			config->distance_pct = 0.04f;
+			config->velocity_pct = 0.06f;
+			config->min_travel = 0.006f;
 			break;
 	}
 }
@@ -81,7 +106,7 @@ static Config default_config()
 	config.show_menu_bar = true;
 	config.fingers = 3;
 	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch
-	config.sensitivity = 2;          // Default sensitivity level (1-5)
+	config.sensitivity = 4;          // Default sensitivity level (1-10)
 	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended
 	config.min_step = 0.006f;        // Step threshold
 	config.min_step_fast = 0.0f;

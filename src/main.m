@@ -18,7 +18,7 @@ static BOOL g_enabled = YES;
 
 // Menu bar app delegate
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
-    NSMenuItem *_sensitivityItems[5];
+    NSMenuItem *_sensitivityItems[10];
 }
 @property (strong, nonatomic) NSStatusItem *statusItem;
 @property (strong, nonatomic) NSMenuItem *enabledMenuItem;
@@ -61,8 +61,19 @@ static BOOL g_enabled = YES;
     NSMenuItem *sensitivityMenuItem = [[NSMenuItem alloc] initWithTitle:@"Sensitivity" action:nil keyEquivalent:@""];
     NSMenu *sensitivityMenu = [[NSMenu alloc] init];
 
-    NSString *levels[] = {@"1 - Low", @"2 - Medium-Low", @"3 - Medium", @"4 - Medium-High", @"5 - High"};
-    for (int i = 0; i < 5; i++) {
+    NSString *levels[] = {
+        @"1 - Lowest",
+        @"2",
+        @"3",
+        @"4",
+        @"5 - Medium",
+        @"6",
+        @"7",
+        @"8",
+        @"9",
+        @"10 - Highest"
+    };
+    for (int i = 0; i < 10; i++) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:levels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
         item.target = self;
         item.tag = i + 1;
@@ -115,7 +126,7 @@ static BOOL g_enabled = YES;
     apply_sensitivity(&g_config, level);
 
     // Update checkmarks
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
         _sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
     }
 
