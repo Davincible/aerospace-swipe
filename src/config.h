@@ -14,10 +14,12 @@ typedef struct {
 	bool wrap_around;
 	bool haptic;
 	bool skip_empty;
+	bool show_menu_bar;
 	int fingers;
 	int swipe_tolerance;
-	float distance_pct; // distance
-	float velocity_pct; // velocity
+	int sensitivity;      // 1-5 scale, affects distance_pct and velocity_pct
+	float distance_pct;   // distance
+	float velocity_pct;   // velocity
 	float settle_factor;
 	float min_step;
 	float min_travel;
@@ -30,6 +32,45 @@ typedef struct {
 	const char* swipe_right;
 } Config;
 
+// Apply sensitivity level (1=least sensitive, 5=most sensitive)
+static void apply_sensitivity(Config* config, int level)
+{
+	// Clamp to 1-5
+	if (level < 1) level = 1;
+	if (level > 5) level = 5;
+	config->sensitivity = level;
+
+	// Sensitivity presets (distance_pct, velocity_pct, min_travel)
+	// Lower values = more sensitive (triggers easier)
+	switch (level) {
+		case 1: // Least sensitive - requires very deliberate swipe
+			config->distance_pct = 0.25f;
+			config->velocity_pct = 0.30f;
+			config->min_travel = 0.050f;
+			break;
+		case 2:
+			config->distance_pct = 0.20f;
+			config->velocity_pct = 0.25f;
+			config->min_travel = 0.040f;
+			break;
+		case 3: // Default/medium
+			config->distance_pct = 0.15f;
+			config->velocity_pct = 0.20f;
+			config->min_travel = 0.030f;
+			break;
+		case 4:
+			config->distance_pct = 0.10f;
+			config->velocity_pct = 0.15f;
+			config->min_travel = 0.020f;
+			break;
+		case 5: // Most sensitive - light swipes trigger
+			config->distance_pct = 0.07f;
+			config->velocity_pct = 0.12f;
+			config->min_travel = 0.012f;
+			break;
+	}
+}
+
 static Config default_config()
 {
 	Config config;
@@ -37,20 +78,22 @@ static Config default_config()
 	config.wrap_around = true;
 	config.haptic = false;
 	config.skip_empty = true;
+	config.show_menu_bar = true;
 	config.fingers = 3;
-	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch (was 0)
-	config.distance_pct = 0.20f;     // ≥20% travel triggers (deliberate swipe required)
-	config.velocity_pct = 0.25f;     // ≥0.25 velocity triggers (need faster swipe)
-	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended (was 15%)
-	config.min_step = 0.006f;        // Step threshold (more movement per frame)
-	config.min_travel = 0.040f;      // Travel threshold (much more deliberate swipe)
+	config.swipe_tolerance = 2;      // Allow up to 2 fingers to mismatch
+	config.sensitivity = 2;          // Default sensitivity level (1-5)
+	config.settle_factor = 0.25f;    // ≤25% of flick speed -> ended
+	config.min_step = 0.006f;        // Step threshold
 	config.min_step_fast = 0.0f;
-	config.min_travel_fast = 0.003f; // Fast swipe threshold (original value)
+	config.min_travel_fast = 0.003f; // Fast swipe threshold
 	config.palm_disp = 0.025;        // 2.5% pad from origin
 	config.palm_age = 0.06;          // 60ms before judgment
 	config.palm_velocity = 0.1;      // 10% of pad dimension per second
 	config.swipe_left = "prev";
 	config.swipe_right = "next";
+
+	// Apply default sensitivity
+	apply_sensitivity(&config, config.sensitivity);
 	return config;
 }
 
@@ -152,6 +195,16 @@ static Config load_config()
 	item = yyjson_obj_get(root, "settle_factor");
 	if (item && yyjson_is_real(item))
 		config.settle_factor = (float)yyjson_get_real(item);
+
+	item = yyjson_obj_get(root, "show_menu_bar");
+	if (item && yyjson_is_bool(item))
+		config.show_menu_bar = yyjson_get_bool(item);
+
+	// Sensitivity can be set via JSON (1-5), overrides distance/velocity
+	item = yyjson_obj_get(root, "sensitivity");
+	if (item && yyjson_is_int(item)) {
+		apply_sensitivity(&config, (int)yyjson_get_int(item));
+	}
 
 	config.swipe_left = config.natural_swipe ? "next" : "prev";
 	config.swipe_right = config.natural_swipe ? "prev" : "next";

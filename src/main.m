@@ -20,11 +20,18 @@ static BOOL g_enabled = YES;
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @property (strong, nonatomic) NSStatusItem *statusItem;
 @property (strong, nonatomic) NSMenuItem *enabledMenuItem;
+@property (strong, nonatomic) NSMenuItem *sensitivityItems[5];
 @end
 
 @implementation AppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    // Skip menu bar if disabled in config
+    if (!g_config.show_menu_bar) {
+        NSLog(@"Menu bar disabled in config");
+        return;
+    }
+
     // Create status bar item
     self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
 
@@ -46,6 +53,24 @@ static BOOL g_enabled = YES;
     self.enabledMenuItem.target = self;
     self.enabledMenuItem.state = NSControlStateValueOn;
     [menu addItem:self.enabledMenuItem];
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    // Sensitivity submenu
+    NSMenuItem *sensitivityMenuItem = [[NSMenuItem alloc] initWithTitle:@"Sensitivity" action:nil keyEquivalent:@""];
+    NSMenu *sensitivityMenu = [[NSMenu alloc] init];
+
+    NSString *levels[] = {@"1 - Low", @"2 - Medium-Low", @"3 - Medium", @"4 - Medium-High", @"5 - High"};
+    for (int i = 0; i < 5; i++) {
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:levels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
+        item.target = self;
+        item.tag = i + 1;
+        item.state = (g_config.sensitivity == i + 1) ? NSControlStateValueOn : NSControlStateValueOff;
+        [sensitivityMenu addItem:item];
+        self.sensitivityItems[i] = item;
+    }
+    sensitivityMenuItem.submenu = sensitivityMenu;
+    [menu addItem:sensitivityMenuItem];
 
     [menu addItem:[NSMenuItem separatorItem]];
 
@@ -82,6 +107,19 @@ static BOOL g_enabled = YES;
     }
 
     NSLog(@"AeroSpace Swipe %@", g_enabled ? @"enabled" : @"disabled");
+}
+
+- (void)setSensitivity:(NSMenuItem *)sender {
+    int level = (int)sender.tag;
+    apply_sensitivity(&g_config, level);
+
+    // Update checkmarks
+    for (int i = 0; i < 5; i++) {
+        self.sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
+    }
+
+    NSLog(@"Sensitivity set to %d (distance=%.2f, velocity=%.2f, travel=%.3f)",
+          level, g_config.distance_pct, g_config.velocity_pct, g_config.min_travel);
 }
 
 - (void)quit:(id)sender {
