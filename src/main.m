@@ -18,7 +18,7 @@ static BOOL g_enabled = YES;
 
 // Menu bar app delegate
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
-    NSMenuItem *_sensitivityItems[10];
+    NSMenuItem *_sensitivityItems[3];
 }
 @property (strong, nonatomic) NSStatusItem *statusItem;
 @property (strong, nonatomic) NSMenuItem *enabledMenuItem;
@@ -61,23 +61,14 @@ static BOOL g_enabled = YES;
     NSMenuItem *sensitivityMenuItem = [[NSMenuItem alloc] initWithTitle:@"Sensitivity" action:nil keyEquivalent:@""];
     NSMenu *sensitivityMenu = [[NSMenu alloc] init];
 
-    NSString *levels[] = {
-        @"1 - Lowest",
-        @"2",
-        @"3",
-        @"4",
-        @"5 - Medium",
-        @"6",
-        @"7",
-        @"8",
-        @"9",
-        @"10 - Highest"
-    };
-    for (int i = 0; i < 10; i++) {
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:levels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
+    // Map: Low=1, Medium=5, High=10
+    NSString *labels[] = {@"Low", @"Medium", @"High"};
+    int values[] = {1, 5, 10};
+    for (int i = 0; i < 3; i++) {
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:labels[i] action:@selector(setSensitivity:) keyEquivalent:@""];
         item.target = self;
-        item.tag = i + 1;
-        item.state = (g_config.sensitivity == i + 1) ? NSControlStateValueOn : NSControlStateValueOff;
+        item.tag = values[i];
+        item.state = (g_config.sensitivity == values[i]) ? NSControlStateValueOn : NSControlStateValueOff;
         [sensitivityMenu addItem:item];
         _sensitivityItems[i] = item;
     }
@@ -125,9 +116,10 @@ static BOOL g_enabled = YES;
     int level = (int)sender.tag;
     apply_sensitivity(&g_config, level);
 
-    // Update checkmarks
-    for (int i = 0; i < 10; i++) {
-        _sensitivityItems[i].state = (i + 1 == level) ? NSControlStateValueOn : NSControlStateValueOff;
+    // Update checkmarks (Low=1, Medium=5, High=10)
+    int values[] = {1, 5, 10};
+    for (int i = 0; i < 3; i++) {
+        _sensitivityItems[i].state = (values[i] == level) ? NSControlStateValueOn : NSControlStateValueOff;
     }
 
     NSLog(@"Sensitivity set to %d (distance=%.2f, velocity=%.2f, travel=%.3f)",
