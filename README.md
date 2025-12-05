@@ -5,6 +5,8 @@ aerospace-swipe detects x-fingered(defaults to 3) swipes on your trackpad and co
 ## features
 - fast swipe detection and forwarding to aerospace (uses aerospace server's socket instead of cli)
 - works with any number of fingers (default is 3, can be changed in config)
+- adjustable sensitivity (Low/Medium/High) with velocity-based early triggering
+- optional menu bar icon with runtime controls for all settings
 - skips empty workspaces (if enabled in config)
 - ignores your palm if it is resting on the trackpad
 - haptics on swipe (this is off by default)
@@ -24,7 +26,9 @@ config file is optional and only needed if you want to change the default settin
   "natural_swipe": false,
   "wrap_around": true,
   "skip_empty": true,
-  "fingers": 3
+  "fingers": 3,
+  "sensitivity": 2,      // 1=Low, 2=Medium, 3=High
+  "show_menu_bar": true  // Show menu bar icon with controls
 }
 ```
 
