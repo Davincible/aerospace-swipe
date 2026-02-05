@@ -6,28 +6,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "aerospace.h"
 #include "yyjson.h"
 
 #define READ_BUFFER_SIZE 8192
+#define SOCKET_TIMEOUT_SECS 2
 
-static const char* ERROR_SOCKET_CREATE = "Failed to create Unix domain socket";
 static const char* ERROR_SOCKET_RECEIVE = "Failed to receive data from socket";
 static const char* ERROR_SOCKET_CLOSE = "Failed to close socket connection";
 static const char* ERROR_JSON_PRINT = "Failed to print JSON to string";
-static const char* WARN_CLI_FALLBACK = "Warning: Failed to connect to socket at %s: %s (errno %d). Falling back to CLI.";
 
 struct aerospace {
 	int fd;
 	char* socket_path;
-	bool use_cli_fallback;
 	char read_buf[READ_BUFFER_SIZE];
 	size_t read_buf_len;
+	unsigned int command_count;
 };
 
 static void fatal_error(const char* fmt, ...)
@@ -74,36 +73,57 @@ static char* get_default_socket_path(void)
 	return path;
 }
 
-static char* execute_cli_command(const char* command_string)
+// Connect to the AeroSpace Unix socket.
+// Returns fd on success, -1 on failure.
+static int connect_socket(const char* socket_path)
 {
-	FILE* pipe = popen(command_string, "r");
-	if (!pipe) {
-		fatal_error("popen() failed for command '%s'", command_string);
+	errno = 0;
+	int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0)
+		return -1;
+
+	struct sockaddr_un addr;
+	memset(&addr, 0, sizeof(struct sockaddr_un));
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+	addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
+
+	errno = 0;
+	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+		close(fd);
+		return -1;
 	}
 
-	char* output = malloc(READ_BUFFER_SIZE + 1);
-	if (!output) {
-		pclose(pipe);
-		fatal_error("Failed to allocate buffer for CLI output");
+	// Set read timeout to prevent indefinite hangs on stale sockets
+	struct timeval timeout;
+	timeout.tv_sec = SOCKET_TIMEOUT_SECS;
+	timeout.tv_usec = 0;
+	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+	return fd;
+}
+
+// Reconnect the socket. Closes existing fd and opens a fresh connection.
+// Returns 1 on success, 0 on failure.
+static int reconnect(aerospace* client)
+{
+	if (!client || !client->socket_path)
+		return 0;
+
+	if (client->fd >= 0) {
+		close(client->fd);
+		client->fd = -1;
+	}
+	client->read_buf_len = 0;
+	client->command_count = 0;
+
+	client->fd = connect_socket(client->socket_path);
+	if (client->fd < 0) {
+		fprintf(stderr, "Reconnect failed: %s (errno %d)\n", strerror(errno), errno);
+		return 0;
 	}
 
-	size_t nread = fread(output, 1, READ_BUFFER_SIZE, pipe);
-	output[nread] = '\0';
-
-	int status = pclose(pipe);
-	if (status != 0) {
-		if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-			fprintf(stderr, "Warning: CLI command failed with exit code %d: %s\n", WEXITSTATUS(status), command_string);
-		} else if (status == -1) {
-			fprintf(stderr, "Warning: pclose failed: %s\n", strerror(errno));
-		}
-	}
-
-	if (nread > 0 && output[nread - 1] == '\n') {
-		output[nread - 1] = '\0';
-	}
-
-	return output;
+	return 1;
 }
 
 static char* execute_aerospace_command(aerospace* client, const char** args, int arg_count, const char* stdin_payload, const char* expected_output_field)
@@ -114,37 +134,9 @@ static char* execute_aerospace_command(aerospace* client, const char** args, int
 		return NULL;
 	}
 
-	if (client->use_cli_fallback) {
-		size_t total_len = strlen("aerospace");
-		for (int i = 0; i < arg_count; i++) {
-			total_len += 1 + strlen(args[i]);
-		}
-
-		char* cli_command_base = malloc(total_len + 1);
-		if (!cli_command_base) {
-			fatal_error("Failed to allocate memory for CLI command");
-		}
-
-		char* p = cli_command_base;
-		p += sprintf(p, "aerospace");
-		for (int i = 0; i < arg_count; i++) {
-			p += sprintf(p, " %s", args[i]);
-		}
-
-		char* final_command;
-		if (stdin_payload && strlen(stdin_payload) > 0) {
-			const char* format = "echo '%s' | %s";
-			size_t len = snprintf(NULL, 0, format, stdin_payload, cli_command_base);
-			final_command = malloc(len + 1);
-			snprintf(final_command, len + 1, format, stdin_payload, cli_command_base);
-			free(cli_command_base);
-		} else {
-			final_command = cli_command_base;
-		}
-
-		char* result = execute_cli_command(final_command);
-		free(final_command);
-		return result;
+	if (client->fd < 0) {
+		fprintf(stderr, "Socket not connected\n");
+		return NULL;
 	}
 
 	yyjson_mut_doc* doc = yyjson_mut_doc_new(NULL);
@@ -172,9 +164,16 @@ static char* execute_aerospace_command(aerospace* client, const char** args, int
 	iov[1].iov_len = 1;
 
 	if (writev(client->fd, iov, 2) < 0) {
-		perror("writev failed");
+		fprintf(stderr, "Socket write failed: %s (errno %d)\n", strerror(errno), errno);
+		free((void*)json_str);
+		close(client->fd);
+		client->fd = -1;
+		client->read_buf_len = 0;
+		return NULL;
 	}
 	free((void*)json_str);
+
+	client->command_count++;
 
 	yyjson_doc* resp_doc = NULL;
 	yyjson_read_err err;
@@ -195,7 +194,16 @@ static char* execute_aerospace_command(aerospace* client, const char** args, int
 		}
 		ssize_t bytes_read = read(client->fd, client->read_buf + client->read_buf_len, READ_BUFFER_SIZE - client->read_buf_len);
 		if (bytes_read <= 0) {
-			fprintf(stderr, "%s\n", ERROR_SOCKET_RECEIVE);
+			if (bytes_read == 0) {
+				fprintf(stderr, "%s: connection closed by AeroSpace\n", ERROR_SOCKET_RECEIVE);
+			} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				fprintf(stderr, "%s: read timeout (%ds)\n", ERROR_SOCKET_RECEIVE, SOCKET_TIMEOUT_SECS);
+			} else {
+				fprintf(stderr, "%s: %s (errno %d)\n", ERROR_SOCKET_RECEIVE, strerror(errno), errno);
+			}
+			close(client->fd);
+			client->fd = -1;
+			client->read_buf_len = 0;
 			return NULL;
 		}
 		client->read_buf_len += bytes_read;
@@ -213,7 +221,7 @@ static char* execute_aerospace_command(aerospace* client, const char** args, int
 	if (yyjson_is_int(exitCodeItem)) {
 		exitCode = (int)yyjson_get_int(exitCodeItem);
 	} else {
-		fprintf(stderr, "Response does not contain valid %s field\n", "exitCode");
+		fprintf(stderr, "Response does not contain valid exitCode field\n");
 		yyjson_doc_free(resp_doc);
 		return NULL;
 	}
@@ -238,45 +246,43 @@ aerospace* aerospace_new(const char* socketPath)
 {
 	aerospace* client = malloc(sizeof(aerospace));
 	client->fd = -1;
-	client->use_cli_fallback = false;
 	client->read_buf_len = 0;
+	client->command_count = 0;
 
 	if (socketPath)
 		client->socket_path = strdup(socketPath);
 	else
 		client->socket_path = get_default_socket_path();
 
-	errno = 0;
-	client->fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	client->fd = connect_socket(client->socket_path);
 	if (client->fd < 0) {
-		int socket_errno = errno;
-		free(client->socket_path);
-		free(client);
-		errno = socket_errno;
-		fatal_error("%s", ERROR_SOCKET_CREATE);
-	}
-
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, client->socket_path, sizeof(addr.sun_path) - 1);
-	addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
-
-	errno = 0;
-	if (connect(client->fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-		int connect_errno = errno;
-		fprintf(stderr, WARN_CLI_FALLBACK, client->socket_path, strerror(connect_errno), connect_errno);
-		close(client->fd);
-		client->fd = -1;
-		client->use_cli_fallback = true;
+		fprintf(stderr, "Warning: Could not connect to socket at %s: %s (errno %d). Will retry.\n",
+			client->socket_path, strerror(errno), errno);
 	}
 
 	return client;
 }
 
-int aerospace_is_initialized(aerospace* client)
+int aerospace_ensure_connected(aerospace* client)
 {
-	return (client && (client->fd >= 0 || client->use_cli_fallback));
+	if (!client)
+		return 0;
+
+	// Socket is dead - reconnect
+	if (client->fd < 0) {
+		fprintf(stderr, "Socket disconnected, reconnecting...\n");
+		if (reconnect(client))
+			fprintf(stderr, "Reconnected to AeroSpace\n");
+		return client->fd >= 0;
+	}
+
+	// Proactive: refresh socket every N commands to prevent staleness
+	if (client->command_count >= AEROSPACE_RECONNECT_INTERVAL) {
+		fprintf(stderr, "Proactive socket refresh after %u commands\n", client->command_count);
+		reconnect(client);
+	}
+
+	return client->fd >= 0;
 }
 
 void aerospace_close(aerospace* client)

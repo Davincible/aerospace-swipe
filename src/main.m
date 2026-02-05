@@ -212,6 +212,12 @@ static BOOL g_enabled = YES;
 
 static void switch_workspace(const char* ws)
 {
+	// Ensure socket is alive; reconnect if broken or stale
+	if (!aerospace_ensure_connected(g_aerospace)) {
+		fprintf(stderr, "Error: Not connected to AeroSpace, will retry next swipe.\n");
+		return;
+	}
+
 	if (g_config.skip_empty || g_config.wrap_around) {
 		char* workspaces = aerospace_list_workspaces(g_aerospace, !g_config.skip_empty);
 		if (!workspaces) {
@@ -570,9 +576,11 @@ int main(int argc, const char* argv[])
 
 		g_aerospace = aerospace_new(NULL);
 		if (!g_aerospace) {
-			fprintf(stderr, "Error: Failed to initialize Aerospace client.\n");
+			fprintf(stderr, "Error: Failed to allocate Aerospace client.\n");
 			exit(EXIT_FAILURE);
 		}
+		// Socket may not connect yet (AeroSpace might not be running).
+		// That's fine - aerospace_ensure_connected() will retry on each swipe.
 
 		if (g_config.haptic) {
 			g_haptic = haptic_open_default();
